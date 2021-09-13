@@ -2,17 +2,42 @@ name: check_libraries
 
 on: [push]
 
+env:
+  PARALLEL_JOBS: 10
+
 jobs:
-  build:
+  prepare:
     runs-on: ubuntu-20.04
+    outputs:
+      matrix: ${{ steps.get-libs.outputs.matrix }}
     steps:
       - uses: actions/checkout@v2
       - name: Get ESP libraries
+        id: get-libs
         run: |
           curl -O https://downloads.arduino.cc/libraries/library_index.json
-          jq '[.libraries[] | select(.architectures[] | contains("esp32"))]' library_index.json > library_index_esp32.json
-      - name: Save the list of libraries
+          pip install -r scripts/requirements.txt
+          python3 scripts/schedule.py --arch esp32 esp32s3 esp32c3 --input library_index.json --output job.json --parallel $PARALLEL_JOBS
+      - name: Save artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: library_index_esp32
-          path: library_index_esp32.json
+          name: jobs-list
+          path: job*.json
+  build:
+    needs: prepare
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix: ${{fromJson(needs.prepare.outputs.matrix)}}
+    env:
+      PARALLEL_ID: ${{ matrix.index }}
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: jobs-list
+      - name: Build
+        run: |
+          echo "Job $((${PARALLEL_ID} + 1))/$((${PARALLEL_JOBS} + 1))"
+          cat job${PARALLEL_ID}.json
+
+
