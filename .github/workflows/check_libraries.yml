@@ -1,0 +1,17 @@
+name: check_libraries
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Get ESP libraries
+        run: |
+          curl -O https://downloads.arduino.cc/libraries/library_index.json
+          cat library_index.json | jq '.libraries[] | select(.architectures[] | contains("esp32"))' > library_index_esp32.json
+      - name: Save the list of libraries
+        uses: actions/upload-artifact@v2
+        with:
+          path: library_index_esp32.json
