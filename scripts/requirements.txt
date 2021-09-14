@@ -1,1 +1,2 @@
 packaging==21.0
+junitparser==2.1.1

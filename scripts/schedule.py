@@ -74,6 +74,10 @@ def main():
         assert latest_version_lib is not None
         selected_libraries.append(latest_version_lib)
 
+    max_libraries = os.environ.get("MAX_LIBRARIES")
+    if max_libraries:
+        selected_libraries = selected_libraries[:int(max_libraries)]
+
     libraries_count = len(selected_libraries)
     libraries_per_job = (libraries_count + args.parallel - 1) // args.parallel
 

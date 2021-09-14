@@ -4,6 +4,7 @@ on: [push]
 
 env:
   PARALLEL_JOBS: 10
+  # MAX_LIBRARIES: 10
 
 jobs:
   prepare:
@@ -30,14 +31,45 @@ jobs:
       matrix: ${{fromJson(needs.prepare.outputs.matrix)}}
     env:
       PARALLEL_ID: ${{ matrix.index }}
+      CONFIG_ARGS: "--config-file scripts/arduino-cli.yaml"
     steps:
+      - uses: actions/checkout@v2
       - name: Download artifacts
         uses: actions/download-artifact@v2
         with:
           name: jobs-list
+      - name: Install Arduino CLI and arduino-esp32
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          arduino-cli ${CONFIG_ARGS} core update-index
+          arduino-cli ${CONFIG_ARGS} core install esp32:esp32
+          arduino-cli ${CONFIG_ARGS} lib update-index
       - name: Build
         run: |
           echo "Job $((${PARALLEL_ID} + 1))/$((${PARALLEL_JOBS} + 1))"
-          cat job${PARALLEL_ID}.json
-
+          pip install -r scripts/requirements.txt
+          python3 scripts/build_each_library.py ${CONFIG_ARGS} --input job${PARALLEL_ID}.json --library-dir $HOME/Arduino/libraries --output report${PARALLEL_ID}.xml
+      - name: Save artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: reports
+          path: report*.xml
+  summary:
+    needs: build
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: reports
+      - name: JUnit summary
+        run: |
+          pip install -r scripts/requirements.txt
+          junitparser merge --glob 'report*.xml' summary.xml
+      - name: Save artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: summary
+          path: summary.xml
 
