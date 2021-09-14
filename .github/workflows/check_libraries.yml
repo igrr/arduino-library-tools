@@ -4,7 +4,6 @@ on: [push]
 
 env:
   PARALLEL_JOBS: 10
-  # MAX_LIBRARIES: 10
 
 jobs:
   prepare:
@@ -67,9 +66,17 @@ jobs:
         run: |
           pip install -r scripts/requirements.txt
           junitparser merge --glob 'report*.xml' summary.xml
+          python3 scripts/test_report_to_markdown.py --input summary.xml --output summary.md
       - name: Save artifacts
         uses: actions/upload-artifact@v2
         with:
           name: summary
           path: summary.xml
-
+      - uses: LouisBrunner/checks-action@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Publish summary
+          conclusion: ${{ job.status }}
+          output: |
+            {"summary": "Test results"}
+          output_text_description_file: summary.md
